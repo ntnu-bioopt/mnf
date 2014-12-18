@@ -5,6 +5,10 @@
 #include <iostream>
 #include <sys/time.h>
 #include <cblas.h>
+#include <fstream>
+#include <sstream>
+#include <cstdlib>
+#include "readimage.h"
 #include "mnf_linebyline.h"
 using namespace std;
 
@@ -14,7 +18,7 @@ void mnf_linebyline_estimate_noise(int bands, int samples, float *line, float **
 	*noise_est = new float[*noise_samples*bands];
 	for (int i=0; i < bands; i++){
 		for (int j=0; j < *noise_samples; j++){
-			*noise_est[i*(*noise_samples) + j] = line[i*samples + j] - line[i*samples + (j + 1)];
+			(*noise_est)[i*(*noise_samples) + j] = line[i*samples + j] - line[i*samples + (j + 1)];
 		}
 	}
 }
@@ -40,6 +44,96 @@ void mnf_linebyline_add_mean(const MnfWorkspace *workspace, float *means, int ba
 	cblas_sger(CblasRowMajor, bands, samples, 1.0f, means, 1, workspace->ones_samples, 1, line, samples);
 }
 
+void imagestatistics_read_from_file(MnfWorkspace *workspace, int bands, ImageStatistics *imgStats, ImageStatistics *noiseStats){
+	const char *imgCovStr = string(workspace->basefilename + "_imgcov.dat").c_str();
+	const char *noiseCovStr = string(workspace->basefilename + "_noisecov.dat").c_str();
+
+	ifstream imgCovFile;
+	imgCovFile.open(imgCovStr);
+
+	ifstream noiseCovFile;
+	noiseCovFile.open(noiseCovStr);
+
+	if (imgCovFile.fail() || imgCovFile.fail()){
+		fprintf(stderr, "Could not find image and noise covariances. Ensure that %s and %s exist. Exiting.\n", imgCovStr, noiseCovStr);
+		exit(1);
+	}
+
+	//copy to container
+	for (int i=0; i < bands; i++){
+		string imgLine, noiseLine;
+		getline(imgCovFile, imgLine);
+		stringstream sI(imgLine);
+		stringstream sN(noiseLine);
+		for (int j=0; j < bands; j++){
+			float val;
+			sI >> val;
+			imgStats->C[i*bands + j] = val;
+			sN >> val;
+			noiseStats->C[i*bands + j] = val;
+		}
+	}
+
+	imgStats->n = 1;
+	noiseStats->n = 1;
+
+	noiseCovFile.close();
+	imgCovFile.close();
+
+
+	//read band means from file
+	const char *meanStr = string(workspace->basefilename + "_bandmeans.dat").c_str();
+	ifstream meanFile;
+	meanFile.open(meanStr);
+
+	if (meanFile.fail()){
+		fprintf(stderr, "Could not find file containing band means, %s. Exiting\n", meanStr);
+		exit(1);
+	}
+
+	//copy to container
+	for (int i=0; i < bands; i++){
+		float val = 0;
+		meanFile >> val;
+		imgStats->means[i] = val;
+	}
+
+	meanFile.close();
+}
+
+void imagestatistics_write_cov_to_file(ImageStatistics *imgStats, int bands, std::string filename){
+	ofstream file;
+	file.open(filename.c_str());
+	float *cov = new float[bands*bands];
+	imagestatistics_get_cov(imgStats, bands, cov);
+	for (int i=0; i < bands; i++){
+		for (int j=0; j < bands; j++){
+			file << cov[i*bands + j] << " ";
+		}
+		file << endl;
+	}
+	file.close();
+	delete [] cov;
+}
+
+void imagestatistics_write_mean_to_file(ImageStatistics *imgStats, int bands, std::string filename){
+	float *means = new float[bands];
+	imagestatistics_get_means(imgStats, bands, means);
+	ofstream file;
+	file.open(filename.c_str());
+	for (int i=0; i < bands; i++){
+		file << means[i] << " ";
+	}
+	file << endl;
+	file.close();
+	delete [] means;
+}
+
+void imagestatistics_write_to_file(MnfWorkspace *workspace, int bands, ImageStatistics *imgStats, ImageStatistics *noiseStats){
+	imagestatistics_write_cov_to_file(imgStats, bands, workspace->basefilename + "_imgcov.dat");
+	imagestatistics_write_cov_to_file(noiseStats, bands, workspace->basefilename + "_noisecov.dat");
+	imagestatistics_write_mean_to_file(imgStats, bands, workspace->basefilename + "_bandmeans.dat");
+}
 
 void mnf_linebyline_run_oneline(MnfWorkspace *workspace, int bands, int samples, float *line, ImageStatistics *imageStats, ImageStatistics *noiseStats){
 	float *noise;
@@ -59,7 +153,9 @@ void mnf_linebyline_run_oneline(MnfWorkspace *workspace, int bands, int samples,
 	//find forward and inverse transformation matrices
 	float *forwardTransfArr = new float[bands*bands];
 	float *inverseTransfArr = new float[bands*bands];
-	mnf_get_transf_matrix(bands, imageStats, noiseStats, forwardTransfArr, inverseTransfArr);
+	float *eigvals = new float[bands];
+	mnf_get_transf_matrix(bands, imageStats, noiseStats, forwardTransfArr, inverseTransfArr, eigvals);
+	delete [] eigvals;
 	
 	//remove mean from data
 	mnf_linebyline_remove_mean(workspace, means_float, bands, samples, line);
@@ -87,10 +183,10 @@ void mnf_linebyline_run_oneline(MnfWorkspace *workspace, int bands, int samples,
 	delete [] noise;
 	delete [] means_float;
 	delete [] forwardTransfArr;
-	delete [] forwardTransfArr;
+	delete [] inverseTransfArr;
 }
 
-void mnf_linebyline_run_image(MnfWorkspace *workspace, int bands, int samples, int lines, float *data, std::string mnfOutFilename){
+void mnf_linebyline_run_image(MnfWorkspace *workspace, int bands, int samples, int lines, float *data, vector<float> wlens){
 	ImageStatistics noiseStats;
 	ImageStatistics imageStats;
 
@@ -106,6 +202,10 @@ void mnf_linebyline_run_image(MnfWorkspace *workspace, int bands, int samples, i
 
 	imagestatistics_deinitialize(&noiseStats);
 	imagestatistics_deinitialize(&imageStats);
+
+	//write image to file
+	hyperspectral_write_header(string(workspace->basefilename + "_linebyline").c_str(), bands, samples, lines, wlens);
+	hyperspectral_write_image(string(workspace->basefilename + "_linebyline").c_str(), bands, samples, lines, data);
 }
 
 void imagestatistics_initialize(ImageStatistics *stats, int bands){

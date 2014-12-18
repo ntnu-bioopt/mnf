@@ -28,7 +28,7 @@ void showHelp(){
 		<< endl
 		<< "MNF arguments: " << endl
 		<< "--forward-only \t Run forward transform only." << endl
-		<< "--inverse-only \t Run inverse transform only. Files containing the covariance files are assumed to have filenames [BASEFILENAME]_imgcov.dat and [BASEFILENAME]_noisecov.dat." << endl
+//		<< "--inverse-only \t Run inverse transform only. Files containing the covariance files are assumed to have filenames [BASEFILENAME]_imgcov.dat and [BASEFILENAME]_noisecov.dat." << endl
 		<< "(If run with both --forward-only and --inverse-only, these arguments will be ignored)" << endl
 		<< "--num-bands=NUM_BANDS \t Specify the number of bands to use in the inverse transform. Default is 10." << endl;
 
@@ -205,8 +205,6 @@ int main(int argc, char *argv[]){
 	hyperspectral_read_image(filename, &header, subset, data);
 	wlens = header.wlens;
 	
-	MnfWorkspace workspace;
-	mnf_initialize(header.bands, header.samples, numBands, &workspace);
 
 	//run MNF
 	TransformDirection dir;
@@ -220,15 +218,18 @@ int main(int argc, char *argv[]){
 	} else {
 		dir = RUN_INVERSE;
 	}
+	
+	
+	MnfWorkspace workspace;
+	mnf_initialize(dir, header.bands, header.samples, numBands, &workspace, mnfOutFilename);
+
 	if (shouldLineByLine){
-		mnf_linebyline_run_image(&workspace, header.bands, newSamples, newLines, data, mnfOutFilename);
+		mnf_linebyline_run_image(&workspace, header.bands, newSamples, newLines, data, wlens);
 	} else {
-		mnf_run(&workspace, header.bands, newSamples, newLines, data);
+		mnf_run(&workspace, header.bands, newSamples, newLines, data, wlens);
 	}
 	
 	mnf_deinitialize(&workspace);
-	
-
 	delete [] data;
 	
 }

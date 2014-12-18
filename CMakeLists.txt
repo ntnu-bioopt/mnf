@@ -11,7 +11,7 @@ set(MKL_LIBRARIES mkl_intel_lp64 mkl_intel_thread mkl_core iomp5)
 find_package(Threads)
 
 
-set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Debug)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 

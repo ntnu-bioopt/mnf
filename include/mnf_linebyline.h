@@ -3,7 +3,7 @@
 
 #include "mnf.h"
 
-void mnf_linebyline_run_image(MnfWorkspace *workspace, int bands, int numSamples, int numLines, float *data, std::string mnfOutFilename);
+void mnf_linebyline_run_image(MnfWorkspace *workspace, int bands, int numSamples, int numLines, float *data, std::vector<float> wlens);
 
 
 typedef struct{
@@ -30,6 +30,9 @@ void mnf_linebyline_estimate_noise(int bands, int samples, float *line, float **
 void imagestatistics_get_means(ImageStatistics *stats, int numBands, float *means);
 void imagestatistics_get_cov(ImageStatistics *stats, int numBands, float *cov);
 
+
+
+void imagestatistics_write_to_file(MnfWorkspace *workspace, int bands, ImageStatistics *imgStats, ImageStatistics *noiseStats);
 
 
 void mnf_linebyline_remove_mean(const MnfWorkspace *workspace, float *means, int bands, int samples, float *line);

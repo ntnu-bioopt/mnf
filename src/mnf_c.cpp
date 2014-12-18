@@ -7,12 +7,12 @@ NTNU */
 #include <iostream>
 #include <fstream>
 #include "mnf.h"
-#include "hyperspectral.h"
 #include <string.h>
 #include <sys/time.h>
 #include <stdio.h>
 #include <pthread.h>
 #include <sstream>
+#include "readimage.h"
 extern "C"
 {
 #include <lapacke.h>
@@ -22,7 +22,7 @@ extern "C"
 using namespace std;
 
 
-void mnf_run(MnfWorkspace *workspace, int bands, int samples, int lines, float *data){
+void mnf_run(MnfWorkspace *workspace, int bands, int samples, int lines, float *data, std::vector<float> wlens){
 	//estimate image statistics
 	ImageStatistics imgStats;
 	ImageStatistics noiseStats;
@@ -31,16 +31,33 @@ void mnf_run(MnfWorkspace *workspace, int bands, int samples, int lines, float *
 	mnf_estimate_statistics(workspace, bands, samples, lines, data, &imgStats, &noiseStats);
 
 	//run forward transform
+	cout << "Run forward transform." << endl;
 	mnf_run_forward(workspace, &imgStats, &noiseStats, bands, samples, lines, data);
 
-	//run inverse transform
-	mnf_run_inverse(workspace, &imgStats, &noiseStats, bands, samples, lines, data);
+	//write transformed data to file
+	cout << "Write transformed data to file." << endl;
+	hyperspectral_write_header(string(workspace->basefilename + "_transformed").c_str(), bands, samples, lines, wlens);
+	hyperspectral_write_image(string(workspace->basefilename + "_transformed").c_str(), bands, samples, lines, data);
+
+	//write image statistics to file
+	imagestatistics_write_to_file(workspace, bands, &imgStats, &noiseStats);
+
+	if (workspace->direction == RUN_BOTH){
+		//run inverse transform
+		cout << "Run inverse transform." << endl;
+		mnf_run_inverse(workspace, &imgStats, &noiseStats, bands, samples, lines, data);
+		cout << "Write transformed data to file." << endl;
+		hyperspectral_write_header(string(workspace->basefilename + "_inversetransformed").c_str(), bands, samples, lines, wlens);
+		hyperspectral_write_image(string(workspace->basefilename + "_inversetransformed").c_str(), bands, samples, lines, data);
+	}
 
 	imagestatistics_deinitialize(&imgStats);
 	imagestatistics_deinitialize(&noiseStats);
 }	
 
-void mnf_initialize(int bands, int samples, int numBandsInInverse, MnfWorkspace *workspace){
+void mnf_initialize(TransformDirection direction, int bands, int samples, int numBandsInInverse, MnfWorkspace *workspace, std::string basefilename){
+	workspace->direction = direction;
+
 	workspace->ones_samples = new float[samples];
 	for (int i=0; i < samples; i++){
 		workspace->ones_samples[i] = 1.0f;
@@ -50,6 +67,8 @@ void mnf_initialize(int bands, int samples, int numBandsInInverse, MnfWorkspace 
 	for (int i=0; i < numBandsInInverse; i++){
 		workspace->R[i*bands + i] = 1.0f;
 	}
+
+	workspace->basefilename = basefilename;
 }
 
 void mnf_deinitialize(MnfWorkspace *workspace){
@@ -68,6 +87,7 @@ void mnf_estimate_statistics(MnfWorkspace *workspace, int bands, int samples, in
 		int noise_samples = 0;
 		mnf_linebyline_estimate_noise(bands, samples, line, &noise, &noise_samples);
 		imagestatistics_update_with_line(workspace, bands, noise_samples, noise, noiseStats);
+		delete [] noise;
 	}
 }
 
@@ -80,7 +100,16 @@ void mnf_run_forward(MnfWorkspace *workspace, ImageStatistics *imgStats, ImageSt
 	//get transfer matrices
 	float *forwardTransf = new float[bands*bands];
 	float *inverseTransf = new float[bands*bands];
-	mnf_get_transf_matrix(bands, imgStats, noiseStats, forwardTransf, inverseTransf);
+	float *eigvals = new float[bands*bands];
+	mnf_get_transf_matrix(bands, imgStats, noiseStats, forwardTransf, inverseTransf, eigvals);
+
+	//write eigenvalues to file
+	ofstream eigvalsFile;
+	eigvalsFile.open(string(workspace->basefilename + "_eigvals.dat").c_str());
+	for (int i=0; i < bands; i++){
+		eigvalsFile << eigvals[i] << endl;
+	}
+	eigvalsFile.close();
 	
 	//run transform
 	for (int i=0; i < lines; i++){
@@ -99,6 +128,7 @@ void mnf_run_forward(MnfWorkspace *workspace, ImageStatistics *imgStats, ImageSt
 	delete [] means;
 	delete [] forwardTransf;
 	delete [] inverseTransf;
+	delete [] eigvals;
 }
 
 void mnf_run_inverse(MnfWorkspace *workspace, ImageStatistics *imgStats, ImageStatistics *noiseStats, int bands, int samples, int lines, float *img){
@@ -109,7 +139,8 @@ void mnf_run_inverse(MnfWorkspace *workspace, ImageStatistics *imgStats, ImageSt
 	//get transfer matrices
 	float *forwardTransf = new float[bands*bands];
 	float *inverseTransf = new float[bands*bands];
-	mnf_get_transf_matrix(bands, imgStats, noiseStats, forwardTransf, inverseTransf);
+	float *eigvals = new float[bands*bands];
+	mnf_get_transf_matrix(bands, imgStats, noiseStats, forwardTransf, inverseTransf, eigvals);
 	
 	//post-multiply R matrix to get k < m first bands in inverse transformation
 	float *R = workspace->R;
@@ -125,7 +156,7 @@ void mnf_run_inverse(MnfWorkspace *workspace, ImageStatistics *imgStats, ImageSt
 		cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, bands, samples, bands, 1.0f, inverseTransfArrShort, bands, submatr, samples, 0.0f, submatrNew, samples);
 		
 		//add means
-		mnf_linebyline_add_mean(workspace, means, bands, samples, submatr);
+		mnf_linebyline_add_mean(workspace, means, bands, samples, submatrNew);
 		
 		memcpy(img + i*samples*bands, submatrNew, sizeof(float)*samples*bands);
 		delete [] submatrNew;
@@ -139,7 +170,7 @@ void mnf_run_inverse(MnfWorkspace *workspace, ImageStatistics *imgStats, ImageSt
 }
 
 
-void mnf_get_transf_matrix(int bands, ImageStatistics *imgStats, ImageStatistics *noiseStats, float *forwardTransf, float *inverseTransf){
+void mnf_get_transf_matrix(int bands, ImageStatistics *imgStats, ImageStatistics *noiseStats, float *forwardTransf, float *inverseTransf, float *eigvals){
 	//get true covariances from supplied statistics
 	float *imgCov = new float[bands*bands];
 	imagestatistics_get_cov(imgStats, bands, imgCov);
@@ -148,7 +179,7 @@ void mnf_get_transf_matrix(int bands, ImageStatistics *imgStats, ImageStatistics
 	imagestatistics_get_cov(noiseStats, bands, noiseCov);
 	
 	//estimate forward transformation matrix
-	mnf_calculate_forward_transf_matrix(bands, imgCov, noiseCov, forwardTransf);
+	mnf_calculate_forward_transf_matrix(bands, imgCov, noiseCov, forwardTransf, eigvals);
 	
 	//estimate inverse transformation matrix
 	mnf_calculate_inverse_transf_matrix(bands, forwardTransf, inverseTransf);
@@ -157,7 +188,7 @@ void mnf_get_transf_matrix(int bands, ImageStatistics *imgStats, ImageStatistics
 	delete [] noiseCov;
 }
 
-void mnf_calculate_forward_transf_matrix(int bands, const float *imgCov, const float *noiseCov, float *forwardTransf){
+void mnf_calculate_forward_transf_matrix(int bands, const float *imgCov, const float *noiseCov, float *forwardTransf, float *eigvals){
 	//copy covariances to temp variables, since dsygv will destroy them 
 	float *noiseCovTemp = new float[bands*bands];
 	float *imgCovTemp = new float[bands*bands];
@@ -168,7 +199,6 @@ void mnf_calculate_forward_transf_matrix(int bands, const float *imgCov, const f
 	int itype = 1; //solves Ax = lam * Bx
 	char jobz = 'V'; //compute both eigenvalues and eigenvectors
 	char uplo = 'L'; //using lower triangles of matrices
-	float *eigvals = new float[bands];
 	int err = LAPACKE_ssygv(LAPACK_ROW_MAJOR, itype, jobz, uplo, bands, noiseCovTemp, bands, imgCovTemp, bands, eigvals);
 	if (err != 0){
 		fprintf(stderr, "LAPACKE_dsygv failed: calculation of forward MNF transformation matrix, err code %d\n", err);
@@ -179,7 +209,6 @@ void mnf_calculate_forward_transf_matrix(int bands, const float *imgCov, const f
 
 	delete [] noiseCovTemp;
 	delete [] imgCovTemp;
-	delete [] eigvals;
 }
 
 void mnf_calculate_inverse_transf_matrix(int bands, const float *forwardTransf, float *inverseTransf){
@@ -208,80 +237,3 @@ void mnf_calculate_inverse_transf_matrix(int bands, const float *forwardTransf, 
 }
 
 
-
-/*void readStatistics(MnfWorkspace *container){
-	const char *imgCovStr = string(container->basefilename + "_imgcov.dat").c_str();
-	const char *noiseCovStr = string(container->basefilename + "_noisecov.dat").c_str();
-
-	ifstream imgCovFile;
-	imgCovFile.open(imgCovStr);
-
-	ifstream noiseCovFile;
-	noiseCovFile.open(noiseCovStr);
-
-	if (imgCovFile.fail() || imgCovFile.fail()){
-		fprintf(stderr, "Could not find image and noise covariances. Ensure that %s and %s exist. Exiting.\n", imgCovStr, noiseCovStr);
-		exit(1);
-	}
-
-	//copy to container
-	for (int i=0; i < container->img->getBands(); i++){
-		string imgLine, noiseLine;
-		getline(imgCovFile, imgLine);
-		stringstream sI(imgLine);
-		stringstream sN(noiseLine);
-		for (int j=0; j < container->img->getBands(); j++){
-			float val;
-			sI >> val;
-			container->imgCov[i*container->img->getBands() + j] = val;
-			sN >> val;
-			container->noiseCov[i*container->img->getBands() + j] = val;
-		}
-	}
-	noiseCovFile.close();
-	imgCovFile.close();
-
-
-	//read band means from file
-	const char *meanStr = string(container->basefilename + "_bandmeans.dat").c_str();
-	ifstream meanFile;
-	meanFile.open(meanStr);
-
-	if (meanFile.fail()){
-		fprintf(stderr, "Could not find file containing band means, %s. Exiting\n", meanStr);
-		exit(1);
-	}
-
-	//copy to container
-	for (int i=0; i < container->img->getBands(); i++){
-		meanFile >> container->means[i];
-	}
-
-	meanFile.close();
-}
-
-
-void printCov(float *cov, int bands, string filename){
-	ofstream file;
-	file.open(filename.c_str());
-	for (int i=0; i < bands; i++){
-		for (int j=0; j < bands; j++){
-			file << cov[i*bands + j] << " ";
-		}
-		file << endl;
-	}
-	file.close();
-	
-}
-
-void printMeans(float *means, int bands, string filename){
-	ofstream file;
-	file.open(filename.c_str());
-	for (int i=0; i < bands; i++){
-		file << means[i] << " ";
-	}
-	file << endl;
-	file.close();
-	
-}
-*/

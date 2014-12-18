@@ -253,7 +253,7 @@ vector<float> getWavelengths(int bands, char* wavelengthStr){
 #include <sstream>
 using namespace std;
 
-void hyperspectral_write_header(char *filename, int numBands, int numPixels, int numLines, std::vector<float> wlens){
+void hyperspectral_write_header(const char *filename, int numBands, int numPixels, int numLines, std::vector<float> wlens){
 	//write image header
 	ostringstream hdrFname;
 	hdrFname << filename << ".hdr";
@@ -276,7 +276,7 @@ void hyperspectral_write_header(char *filename, int numBands, int numPixels, int
 	hdrOut.close();
 }
 
-void hyperspectral_write_image(char *filename, int numBands, int numPixels, int numLines, float *data){
+void hyperspectral_write_image(const char *filename, int numBands, int numPixels, int numLines, float *data){
 	//prepare image file
 	ostringstream imgFname;
 	imgFname << filename << ".img";
