@@ -175,7 +175,7 @@ int main(int argc, char *argv[]){
 	size_t offset;
 	vector<float> wlens;
 	HyspexHeader header;
-	readHeader(filename, &header);
+	hyperspectral_read_header(filename, &header);
 	
 	//set default startline and the like
 	if (!startline){
@@ -202,8 +202,9 @@ int main(int argc, char *argv[]){
 	
 	//read hyperspectral image
 	float *data = new float[newLines*newSamples*header.bands];
-	readImage(filename, &header, subset, data);
+	hyperspectral_read_image(filename, &header, subset, data);
 	wlens = header.wlens;
+	
 
 	//run MNF
 	TransformDirection dir;
@@ -217,13 +218,18 @@ int main(int argc, char *argv[]){
 	} else {
 		dir = RUN_INVERSE;
 	}
+	
+	
+	MnfWorkspace workspace;
+	mnf_initialize(dir, header.bands, header.samples, numBands, &workspace, mnfOutFilename);
+
 	if (shouldLineByLine){
-		mnf_linebyline(data, newLines, newSamples, header.bands, numBands, mnfOutFilename);
+		mnf_linebyline_run_image(&workspace, header.bands, newSamples, newLines, data, wlens);
 	} else {
-		run_mnf(dir, numBands, data, wlens, newSamples, header.bands, newLines, mnfOutFilename);
+		mnf_run(&workspace, header.bands, newSamples, newLines, data, wlens);
 	}
 	
-
+	mnf_deinitialize(&workspace);
 	delete [] data;
 	
 }

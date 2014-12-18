@@ -11,15 +11,12 @@ set(MKL_LIBRARIES mkl_intel_lp64 mkl_intel_thread mkl_core iomp5)
 find_package(Threads)
 
 
-set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Debug)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 #mnf library
-add_library(mnf SHARED src/mnf_c.cpp src/mnf_linebyline.cpp src/hyperspectral.cpp)
-
-#mnf stage for hylight framework
-add_library(mnfstage SHARED src/mnfstage.cpp)
+add_library(mnf SHARED src/mnf_c.cpp src/mnf_linebyline.cpp)
 
 #mnf executable
 add_executable(mnf-bin src/main.cpp src/readimage.cpp)
@@ -29,6 +26,6 @@ target_link_libraries(mnf-bin mnf ${MKL_LIBRARIES} lapacke)
 
 
 #install libraries, binaries and header files
-install(TARGETS mnf mnfstage DESTINATION lib)
+install(TARGETS mnf DESTINATION lib)
 install(TARGETS mnf-bin DESTINATION bin)
-install(FILES include/mnfstage.h include/mnf_linebyline.h include/mnf.h DESTINATION include)
+install(FILES include/mnf_linebyline.h include/mnf.h DESTINATION include)

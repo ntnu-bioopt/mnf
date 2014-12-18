@@ -24,7 +24,7 @@ vector<float> getWavelengths(int bands, char* wavelengthStr);
 
 char *getBasename(char *filename);
 
-void readHeader(char *filename, HyspexHeader *header){
+void hyperspectral_read_header(char *filename, HyspexHeader *header){
 	//find base filename
 	char *baseName = getBasename(filename);
 
@@ -93,7 +93,7 @@ void readHeader(char *filename, HyspexHeader *header){
 	fprintf(stderr, "\n");
 }
 
-void readImage(char *filename, HyspexHeader *header, ImageSubset subset, float *data){
+void hyperspectral_read_image(char *filename, HyspexHeader *header, ImageSubset subset, float *data){
 	//find number of bytes for contained element
 	size_t elementBytes = 0;
 	if (header->datatype == 4){
@@ -243,3 +243,53 @@ vector<float> getWavelengths(int bands, char* wavelengthStr){
 	free(matchArray);
 	return retWlens;
 }
+
+
+
+#include <fstream>
+#include <iostream>
+#include <math.h>
+#include <cstring>
+#include <sstream>
+using namespace std;
+
+void hyperspectral_write_header(const char *filename, int numBands, int numPixels, int numLines, std::vector<float> wlens){
+	//write image header
+	ostringstream hdrFname;
+	hdrFname << filename << ".hdr";
+	ofstream hdrOut(hdrFname.str().c_str());
+	hdrOut << "ENVI" << endl;
+	hdrOut << "samples = " << numPixels << endl;
+	hdrOut << "lines = " << numLines << endl;
+	hdrOut << "bands = " << numBands << endl;
+	hdrOut << "header offset = 0" << endl;
+	hdrOut << "file type = ENVI Standard" << endl;
+	hdrOut << "data type = 4" << endl;
+	hdrOut << "interleave = bil" << endl;
+	hdrOut << "default bands = {55,41,12}" << endl;
+	hdrOut << "byte order = 0" << endl;
+	hdrOut << "wavelength = {";
+	for (int i=0; i < wlens.size(); i++){
+		hdrOut << wlens[i] << " ";
+	}
+	hdrOut << "}" << endl;
+	hdrOut.close();
+}
+
+void hyperspectral_write_image(const char *filename, int numBands, int numPixels, int numLines, float *data){
+	//prepare image file
+	ostringstream imgFname;
+	imgFname << filename << ".img";
+	ofstream *hyspexOut = new ofstream(imgFname.str().c_str(),ios::out | ios::binary);
+	
+	//write image
+	for (int i=0; i < numLines; i++){
+		float *write_data = data + i*numBands*numPixels;
+		hyspexOut->write((char*)(write_data), sizeof(float)*numBands*numPixels);
+	}
+
+	hyspexOut->close();
+	delete hyspexOut;
+}
+
+
