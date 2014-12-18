@@ -3,48 +3,38 @@
 
 #include "mnf.h"
 
-void mnf_linebyline(float *data, int lines, int samples, int bands, int numBands, std::string mnfOutFilename);
-
+void mnf_linebyline_run_image(int numBands, int numSamples, int numLines, float *data, std::string mnfOutFilename);
 
 
 typedef struct{
 	int n; //number of pixels so far summed over
+	float *C; 
+	double *means; 
 
-	//float *y;
-	float *yiyj;
+} ImageStatistics;
 
-	float *C; //not used?
-	float *means_prev;
-	double *means;
-	int numSamplesInMeans;
-} Covariance;
+//(de)initialize covariance arrays
+void imagestatistics_initialize(ImageStatistics *stats, int bands);
+void imagestatistics_deinitialize(ImageStatistics *stats);
 
 //run mnf on one line, incrementally updating the covariances by this line and denoising line in place
-void mnf_oneline(float *line, MnfWorkspace *workspace, Covariance *imageCov, Covariance *noiseCov);
-
-//create covariance arrays
-void initializeCov(Covariance *cov, int bands, int samples);
-
-//delete covariance arrays
-void deinitializeCov(Covariance *cov);
-
-//update covariance matrices with a new line
-void updateCovariances(float *data, int samples, int bands, Covariance *imCov);
-
-//update means with a new line
-void updateMeans(MnfWorkspace *workspace, float *data, int samples, int bands, double *means, int *numMeans);
+void mnf_linebyline_run_oneline(MnfWorkspace *workspace, int numBands, int numSamples, float *line, ImageStatistics *imageStats, ImageStatistics *noiseStats);
 
 //update covariances and means using a numerically stable algorithm
-void updateStatistics(MnfWorkspace *workspace, float *bilData, int samples, int bands, Covariance *cov);
-
-//calculate total covariance from the partial sums and means
-void calculateTotCovariance(Covariance *cov, float *means, int bands, float *outputCovMat);
+void imagestatistics_update_with_line(const MnfWorkspace *workspace, int numBands, int numSamples, float *bilData, ImageStatistics *stats);
 
 //explicitly estimate noise by shift difference
-//since we are doing this line by line, there is no point to doing it implicitly in order to save RAM, except for jumbling more shit inside the same for loop
-float *estimateNoise(float *line, int samples, int bands);
+//allocates the noise estimate array
+void mnf_linebyline_estimate_noise(int bands, int samples, float *line, float **noise_est, int *noise_samples);
 
-//estimate the ENVI way using neighboring values in current line and the sample above in the previous line
-float *estimateENVINoise(float *line, float *prevLine, int samples, int bands);
+void imagestatistics_get_means(ImageStatistics *stats, int numBands, float *means);
+
+void imagestatistics_get_covariance(ImageStatistics *stats, int numBands, float *cov);
+
+
+
+void mnf_linebyline_remove_mean(const MnfWorkspace *workspace, float *means, int bands, int samples, float *line);
+
+
 
 #endif
