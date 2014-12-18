@@ -28,7 +28,7 @@ void showHelp(){
 		<< endl
 		<< "MNF arguments: " << endl
 		<< "--forward-only \t Run forward transform only." << endl
-//		<< "--inverse-only \t Run inverse transform only. Files containing the covariance files are assumed to have filenames [BASEFILENAME]_imgcov.dat and [BASEFILENAME]_noisecov.dat." << endl
+		<< "--inverse-only \t Run inverse transform only. Files containing the covariance files are assumed to have filenames [BASEFILENAME]_imgcov.dat and [BASEFILENAME]_noisecov.dat." << endl
 		<< "(If run with both --forward-only and --inverse-only, these arguments will be ignored)" << endl
 		<< "--num-bands=NUM_BANDS \t Specify the number of bands to use in the inverse transform. Default is 10." << endl;
 

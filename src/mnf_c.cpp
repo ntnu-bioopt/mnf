@@ -23,26 +23,30 @@ using namespace std;
 
 
 void mnf_run(MnfWorkspace *workspace, int bands, int samples, int lines, float *data, std::vector<float> wlens){
-	//estimate image statistics
 	ImageStatistics imgStats;
 	ImageStatistics noiseStats;
 	imagestatistics_initialize(&imgStats, bands);
 	imagestatistics_initialize(&noiseStats, bands);
-	mnf_estimate_statistics(workspace, bands, samples, lines, data, &imgStats, &noiseStats);
 
-	//run forward transform
-	cout << "Run forward transform." << endl;
-	mnf_run_forward(workspace, &imgStats, &noiseStats, bands, samples, lines, data);
+	if (workspace->direction == RUN_FORWARD || workspace->direction == RUN_BOTH){
+		//estimate image statistics
+		mnf_estimate_statistics(workspace, bands, samples, lines, data, &imgStats, &noiseStats);
 
-	//write transformed data to file
-	cout << "Write transformed data to file." << endl;
-	hyperspectral_write_header(string(workspace->basefilename + "_transformed").c_str(), bands, samples, lines, wlens);
-	hyperspectral_write_image(string(workspace->basefilename + "_transformed").c_str(), bands, samples, lines, data);
+		//run forward transform
+		cout << "Run forward transform." << endl;
+		mnf_run_forward(workspace, &imgStats, &noiseStats, bands, samples, lines, data);
 
-	//write image statistics to file
-	imagestatistics_write_to_file(workspace, bands, &imgStats, &noiseStats);
+		//write transformed data to file
+		cout << "Write transformed data to file." << endl;
+		hyperspectral_write_header(string(workspace->basefilename + "_transformed").c_str(), bands, samples, lines, wlens);
+		hyperspectral_write_image(string(workspace->basefilename + "_transformed").c_str(), bands, samples, lines, data);
 
-	if (workspace->direction == RUN_BOTH){
+		//write image statistics to file
+		imagestatistics_write_to_file(workspace, bands, &imgStats, &noiseStats);
+	} else if (workspace->direction == RUN_INVERSE){
+		//get statistics from file
+		imagestatistics_read_from_file(workspace, bands, &imgStats, &noiseStats);
+	} else if (workspace->direction == RUN_BOTH){
 		//run inverse transform
 		cout << "Run inverse transform." << endl;
 		mnf_run_inverse(workspace, &imgStats, &noiseStats, bands, samples, lines, data);

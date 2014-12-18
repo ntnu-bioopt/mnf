@@ -34,6 +34,8 @@ void imagestatistics_get_cov(ImageStatistics *stats, int numBands, float *cov);
 
 void imagestatistics_write_to_file(MnfWorkspace *workspace, int bands, ImageStatistics *imgStats, ImageStatistics *noiseStats);
 
+void imagestatistics_read_from_file(MnfWorkspace *workspace, int bands, ImageStatistics *imgStats, ImageStatistics *noiseStats);
+
 
 void mnf_linebyline_remove_mean(const MnfWorkspace *workspace, float *means, int bands, int samples, float *line);
 void mnf_linebyline_add_mean(const MnfWorkspace *workspace, float *means, int bands, int samples, float *line);
