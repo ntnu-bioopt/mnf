@@ -17,12 +17,11 @@ typedef struct{
 	std::string basefilename; //base filename for output
 	float *R; //matrix with which to pre-multiply transformed image before inverse transform (first m elements bla bla)
 	float *ones_samples; //vector of length samples consisting only of ones, for convenience
-
+	
 	TransformDirection direction;
 } MnfWorkspace;
 
 #include "mnf_linebyline.h"
-
 
 //(de)initialize the mnf workspace
 void mnf_initialize(TransformDirection dir, int bands, int samples, int numBandsInInverse, MnfWorkspace *workspace, std::string basefilename);

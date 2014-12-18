@@ -13,6 +13,11 @@ typedef struct{
 
 } ImageStatistics;
 
+
+typedef struct{
+	
+} MnfLblWorkspace;
+
 //(de)initialize covariance arrays
 void imagestatistics_initialize(ImageStatistics *stats, int bands);
 void imagestatistics_deinitialize(ImageStatistics *stats);

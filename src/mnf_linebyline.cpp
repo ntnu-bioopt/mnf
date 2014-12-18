@@ -169,11 +169,20 @@ void mnf_linebyline_run_oneline(MnfWorkspace *workspace, int bands, int samples,
 
 	//actual noise removal	
 	float *submatrNew = new float[bands*samples];
-	cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, bands, samples, bands, 1.0f, invTrMultRMultForTr, bands, line, samples, 0.0f, submatrNew, samples);
-	//cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, bands, samples, bands, 1.0f, forwardTransfArr, bands, line, samples, 0.0f, submatrNew, samples); //if we would only want the transform, which we don't anyway
+
+	switch(workspace->direction){
+		case RUN_FORWARD:
+			cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, bands, samples, bands, 1.0f, forwardTransfArr, bands, line, samples, 0.0f, submatrNew, samples);
+			break;
+		default:
+			//inverse only doesn't make sense for the line by line method, so do both directions
+			cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, bands, samples, bands, 1.0f, invTrMultRMultForTr, bands, line, samples, 0.0f, submatrNew, samples);
+			
+			//add mean to data
+			mnf_linebyline_add_mean(workspace, means_float, bands, samples, submatrNew);
+			break;
+	}		
 	
-	//add mean to data
-	mnf_linebyline_add_mean(workspace, means_float, bands, samples, submatrNew);
 
 	memcpy(line, submatrNew, sizeof(float)*samples*bands);
 	delete [] submatrNew;
@@ -197,7 +206,15 @@ void mnf_linebyline_run_image(MnfWorkspace *workspace, int bands, int samples, i
 	for (int i=0; i < lines; i++){
 		float *line = data + i*samples*bands;
 		fprintf(stderr, "Line %d/%d\n", i, lines);
+		
+		timeval time1;
+		gettimeofday(&time1, NULL);
+
 		mnf_linebyline_run_oneline(workspace, bands, samples, line, &imageStats, &noiseStats);
+		
+		timeval time2;
+		gettimeofday(&time2, NULL);
+		cout << (time2.tv_sec + time2.tv_usec*1.0e-06) - (time1.tv_sec + time1.tv_usec*1.0e-06) << endl;
 	}
 
 	imagestatistics_deinitialize(&noiseStats);
