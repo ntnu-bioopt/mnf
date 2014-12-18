@@ -40,10 +40,10 @@ void mnf_run_forward(MnfWorkspace *workspace, ImageStatistics *imgStats, ImageSt
 void mnf_run_inverse(MnfWorkspace *workspace, ImageStatistics *imgStats, ImageStatistics *noiseStats, int bands, int samples, int lines, float *img);
 
 //forward and inverse transformations based on covariances
+void mnf_get_transf_matrix(int bands, ImageStatistics *imgStats, ImageStatistics *noiseStats, float *forwardTransf, float *inverseTransf, float *eigvals);
 void mnf_calculate_forward_transf_matrix(int bands, const float *imgCov, const float *noiseCov, float *forwardTransf, float *eigvals);
 void mnf_calculate_inverse_transf_matrix(int bands, const float *forwardTransf, float *inverseTransf);
 
-void mnf_get_transf_matrix(int bands, ImageStatistics *imgStats, ImageStatistics *noiseStats, float *forwardTransf, float *inverseTransf, float *eigvals);
 
 
 #endif

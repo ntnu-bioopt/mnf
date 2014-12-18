@@ -12,6 +12,9 @@
 #include "mnf_linebyline.h"
 using namespace std;
 
+///////////////////////////////
+// MNF-LBL RELEVANT ROUTINES //
+///////////////////////////////
 
 void mnf_linebyline_estimate_noise(int bands, int samples, float *line, float **noise_est, int *noise_samples){
 	*noise_samples = samples-1;
@@ -22,6 +25,109 @@ void mnf_linebyline_estimate_noise(int bands, int samples, float *line, float **
 		}
 	}
 }
+
+void mnf_linebyline_remove_mean(const MnfWorkspace *workspace, float *means, int bands, int samples, float *line){
+	cblas_sger(CblasRowMajor, bands, samples, -1.0f, means, 1, workspace->ones_samples, 1, line, samples);
+}
+
+void mnf_linebyline_add_mean(const MnfWorkspace *workspace, float *means, int bands, int samples, float *line){
+	cblas_sger(CblasRowMajor, bands, samples, 1.0f, means, 1, workspace->ones_samples, 1, line, samples);
+}
+
+void mnf_linebyline_run_oneline(MnfWorkspace *workspace, int bands, int samples, float *line, ImageStatistics *imageStats, ImageStatistics *noiseStats){
+	float *noise;
+	int noise_samples = 0;
+
+	//image statistics
+	imagestatistics_update_with_line(workspace, bands, samples, line, imageStats);
+	
+	//noise statistics
+	mnf_linebyline_estimate_noise(bands, samples, line, &noise, &noise_samples);
+	imagestatistics_update_with_line(workspace, bands, noise_samples, noise, noiseStats);
+
+	//get means	
+	float *means_float = new float[bands];
+	imagestatistics_get_means(imageStats, bands, means_float);
+
+	//find forward and inverse transformation matrices
+	float *forwardTransfArr = new float[bands*bands];
+	float *inverseTransfArr = new float[bands*bands];
+	float *eigvals = new float[bands];
+	mnf_get_transf_matrix(bands, imageStats, noiseStats, forwardTransfArr, inverseTransfArr, eigvals);
+	delete [] eigvals;
+	
+	//remove mean from data
+	mnf_linebyline_remove_mean(workspace, means_float, bands, samples, line);
+
+	//pre-calculate matrix with which to multiply the image for noise removal
+	float *invTrMultR = new float[bands*bands];
+	cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, bands, bands, bands, 1.0f, inverseTransfArr, bands, workspace->R, bands, 0.0f, invTrMultR, bands);
+
+	float *invTrMultRMultForTr = new float[bands*bands];
+	cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, bands, bands, bands, 1.0f, invTrMultR, bands, forwardTransfArr, bands, 0.0f, invTrMultRMultForTr, bands);
+
+	//actual noise removal	
+	float *submatrNew = new float[bands*samples];
+
+	switch(workspace->direction){
+		case RUN_FORWARD:
+			cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, bands, samples, bands, 1.0f, forwardTransfArr, bands, line, samples, 0.0f, submatrNew, samples);
+			break;
+		default:
+			//inverse only doesn't make sense for the line by line method, so do both directions
+			cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, bands, samples, bands, 1.0f, invTrMultRMultForTr, bands, line, samples, 0.0f, submatrNew, samples);
+			
+			//add mean to data
+			mnf_linebyline_add_mean(workspace, means_float, bands, samples, submatrNew);
+			break;
+	}		
+	
+
+	memcpy(line, submatrNew, sizeof(float)*samples*bands);
+	delete [] submatrNew;
+
+	delete [] invTrMultR;
+	delete [] invTrMultRMultForTr;
+	delete [] noise;
+	delete [] means_float;
+	delete [] forwardTransfArr;
+	delete [] inverseTransfArr;
+}
+
+void mnf_linebyline_run_image(MnfWorkspace *workspace, int bands, int samples, int lines, float *data, vector<float> wlens){
+	ImageStatistics noiseStats;
+	ImageStatistics imageStats;
+
+	imagestatistics_initialize(&noiseStats, bands);
+	imagestatistics_initialize(&imageStats, bands);
+
+
+	for (int i=0; i < lines; i++){
+		float *line = data + i*samples*bands;
+		fprintf(stderr, "Line %d/%d\n", i, lines);
+		
+		timeval time1;
+		gettimeofday(&time1, NULL);
+
+		mnf_linebyline_run_oneline(workspace, bands, samples, line, &imageStats, &noiseStats);
+		
+		timeval time2;
+		gettimeofday(&time2, NULL);
+		cout << (time2.tv_sec + time2.tv_usec*1.0e-06) - (time1.tv_sec + time1.tv_usec*1.0e-06) << endl;
+	}
+
+	imagestatistics_deinitialize(&noiseStats);
+	imagestatistics_deinitialize(&imageStats);
+
+	//write image to file
+	hyperspectral_write_header(string(workspace->basefilename + "_linebyline").c_str(), bands, samples, lines, wlens);
+	hyperspectral_write_image(string(workspace->basefilename + "_linebyline").c_str(), bands, samples, lines, data);
+}
+
+
+///////////////////////////
+// STATISTICS ESTIMATION //
+///////////////////////////
 
 
 void imagestatistics_get_means(ImageStatistics *stats, int numBands, float *means){
@@ -34,14 +140,6 @@ void imagestatistics_get_cov(ImageStatistics *stats, int numBands, float *cov){
 	for (int i=0; i < numBands*numBands; i++){
 		cov[i] = stats->C[i]/(stats->n*1.0f);
 	}
-}
-
-void mnf_linebyline_remove_mean(const MnfWorkspace *workspace, float *means, int bands, int samples, float *line){
-	cblas_sger(CblasRowMajor, bands, samples, -1.0f, means, 1, workspace->ones_samples, 1, line, samples);
-}
-
-void mnf_linebyline_add_mean(const MnfWorkspace *workspace, float *means, int bands, int samples, float *line){
-	cblas_sger(CblasRowMajor, bands, samples, 1.0f, means, 1, workspace->ones_samples, 1, line, samples);
 }
 
 void imagestatistics_read_from_file(MnfWorkspace *workspace, int bands, ImageStatistics *imgStats, ImageStatistics *noiseStats){
@@ -135,95 +233,6 @@ void imagestatistics_write_to_file(MnfWorkspace *workspace, int bands, ImageStat
 	imagestatistics_write_mean_to_file(imgStats, bands, workspace->basefilename + "_bandmeans.dat");
 }
 
-void mnf_linebyline_run_oneline(MnfWorkspace *workspace, int bands, int samples, float *line, ImageStatistics *imageStats, ImageStatistics *noiseStats){
-	float *noise;
-	int noise_samples = 0;
-
-	//image statistics
-	imagestatistics_update_with_line(workspace, bands, samples, line, imageStats);
-	
-	//noise statistics
-	mnf_linebyline_estimate_noise(bands, samples, line, &noise, &noise_samples);
-	imagestatistics_update_with_line(workspace, bands, noise_samples, noise, noiseStats);
-
-	//get means	
-	float *means_float = new float[bands];
-	imagestatistics_get_means(imageStats, bands, means_float);
-
-	//find forward and inverse transformation matrices
-	float *forwardTransfArr = new float[bands*bands];
-	float *inverseTransfArr = new float[bands*bands];
-	float *eigvals = new float[bands];
-	mnf_get_transf_matrix(bands, imageStats, noiseStats, forwardTransfArr, inverseTransfArr, eigvals);
-	delete [] eigvals;
-	
-	//remove mean from data
-	mnf_linebyline_remove_mean(workspace, means_float, bands, samples, line);
-
-	//pre-calculate matrix with which to multiply the image for noise removal
-	float *invTrMultR = new float[bands*bands];
-	cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, bands, bands, bands, 1.0f, inverseTransfArr, bands, workspace->R, bands, 0.0f, invTrMultR, bands);
-
-	float *invTrMultRMultForTr = new float[bands*bands];
-	cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, bands, bands, bands, 1.0f, invTrMultR, bands, forwardTransfArr, bands, 0.0f, invTrMultRMultForTr, bands);
-
-	//actual noise removal	
-	float *submatrNew = new float[bands*samples];
-
-	switch(workspace->direction){
-		case RUN_FORWARD:
-			cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, bands, samples, bands, 1.0f, forwardTransfArr, bands, line, samples, 0.0f, submatrNew, samples);
-			break;
-		default:
-			//inverse only doesn't make sense for the line by line method, so do both directions
-			cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, bands, samples, bands, 1.0f, invTrMultRMultForTr, bands, line, samples, 0.0f, submatrNew, samples);
-			
-			//add mean to data
-			mnf_linebyline_add_mean(workspace, means_float, bands, samples, submatrNew);
-			break;
-	}		
-	
-
-	memcpy(line, submatrNew, sizeof(float)*samples*bands);
-	delete [] submatrNew;
-
-	delete [] invTrMultR;
-	delete [] invTrMultRMultForTr;
-	delete [] noise;
-	delete [] means_float;
-	delete [] forwardTransfArr;
-	delete [] inverseTransfArr;
-}
-
-void mnf_linebyline_run_image(MnfWorkspace *workspace, int bands, int samples, int lines, float *data, vector<float> wlens){
-	ImageStatistics noiseStats;
-	ImageStatistics imageStats;
-
-	imagestatistics_initialize(&noiseStats, bands);
-	imagestatistics_initialize(&imageStats, bands);
-
-
-	for (int i=0; i < lines; i++){
-		float *line = data + i*samples*bands;
-		fprintf(stderr, "Line %d/%d\n", i, lines);
-		
-		timeval time1;
-		gettimeofday(&time1, NULL);
-
-		mnf_linebyline_run_oneline(workspace, bands, samples, line, &imageStats, &noiseStats);
-		
-		timeval time2;
-		gettimeofday(&time2, NULL);
-		cout << (time2.tv_sec + time2.tv_usec*1.0e-06) - (time1.tv_sec + time1.tv_usec*1.0e-06) << endl;
-	}
-
-	imagestatistics_deinitialize(&noiseStats);
-	imagestatistics_deinitialize(&imageStats);
-
-	//write image to file
-	hyperspectral_write_header(string(workspace->basefilename + "_linebyline").c_str(), bands, samples, lines, wlens);
-	hyperspectral_write_image(string(workspace->basefilename + "_linebyline").c_str(), bands, samples, lines, data);
-}
 
 void imagestatistics_initialize(ImageStatistics *stats, int bands){
 	stats->n = 0;

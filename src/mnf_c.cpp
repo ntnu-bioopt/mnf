@@ -21,6 +21,30 @@ extern "C"
 #include "mnf_linebyline.h"
 using namespace std;
 
+//////////////////////////////////////////////////////////////
+// MNF MAIN ROUTINES FOR DENOISING/TRANSFORMING WHOLE IMAGE //
+//////////////////////////////////////////////////////////////
+
+void mnf_initialize(TransformDirection direction, int bands, int samples, int numBandsInInverse, MnfWorkspace *workspace, std::string basefilename){
+	workspace->direction = direction;
+
+	workspace->ones_samples = new float[samples];
+	for (int i=0; i < samples; i++){
+		workspace->ones_samples[i] = 1.0f;
+	}
+	
+	workspace->R = new float[bands*bands]();
+	for (int i=0; i < numBandsInInverse; i++){
+		workspace->R[i*bands + i] = 1.0f;
+	}
+
+	workspace->basefilename = basefilename;
+}
+
+void mnf_deinitialize(MnfWorkspace *workspace){
+	delete [] workspace->ones_samples;
+	delete [] workspace->R;
+}
 
 void mnf_run(MnfWorkspace *workspace, int bands, int samples, int lines, float *data, std::vector<float> wlens){
 	ImageStatistics imgStats;
@@ -59,26 +83,6 @@ void mnf_run(MnfWorkspace *workspace, int bands, int samples, int lines, float *
 	imagestatistics_deinitialize(&noiseStats);
 }	
 
-void mnf_initialize(TransformDirection direction, int bands, int samples, int numBandsInInverse, MnfWorkspace *workspace, std::string basefilename){
-	workspace->direction = direction;
-
-	workspace->ones_samples = new float[samples];
-	for (int i=0; i < samples; i++){
-		workspace->ones_samples[i] = 1.0f;
-	}
-	
-	workspace->R = new float[bands*bands]();
-	for (int i=0; i < numBandsInInverse; i++){
-		workspace->R[i*bands + i] = 1.0f;
-	}
-
-	workspace->basefilename = basefilename;
-}
-
-void mnf_deinitialize(MnfWorkspace *workspace){
-	delete [] workspace->ones_samples;
-	delete [] workspace->R;
-}
 
 void mnf_estimate_statistics(MnfWorkspace *workspace, int bands, int samples, int lines, float *img, ImageStatistics *imgStats, ImageStatistics *noiseStats){
 	for (int i=0; i < lines; i++){
@@ -173,6 +177,10 @@ void mnf_run_inverse(MnfWorkspace *workspace, ImageStatistics *imgStats, ImageSt
 	delete [] inverseTransfArrShort;
 }
 
+
+///////////////////////////////////////////////
+// MNF HELPER ROUTINES, ALSO USED IN MNF-LBL //
+///////////////////////////////////////////////
 
 void mnf_get_transf_matrix(int bands, ImageStatistics *imgStats, ImageStatistics *noiseStats, float *forwardTransf, float *inverseTransf, float *eigvals){
 	//get true covariances from supplied statistics
