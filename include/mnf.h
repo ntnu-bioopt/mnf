@@ -6,7 +6,6 @@ asgeir.bjorgan@iet.ntnu.no
 NTNU */
 
 #include <string>
-#include "hyperspectral.h"
 #include <vector>
 
 //enum specifying which direction to run the MNF transform
