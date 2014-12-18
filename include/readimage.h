@@ -26,8 +26,9 @@ typedef struct {
 void hyperspectral_read_header(char *filename, HyspexHeader *header);
 void hyperspectral_read_image(char *filename, HyspexHeader *header, ImageSubset subset, float *data);
 
-void hyperspectral_write_header();
-void hyperspectral_write_image();
+
+void hyperspectral_write_header(char *filename, int bands, int samples, int lines, std::vector<float> wlens);
+void hyperspectral_write_image(char *filename, int bands, int samples, int lines, float *data);
 
 
 #endif

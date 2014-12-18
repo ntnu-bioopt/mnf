@@ -26,15 +26,15 @@ void mnf_run(MnfWorkspace *workspace, int bands, int samples, int lines, float *
 	//estimate image statistics
 	ImageStatistics imgStats;
 	ImageStatistics noiseStats;
-	imagestatistics_initialize(&imgStats);
-	imagestatistics_initialize(&noiseStats);
+	imagestatistics_initialize(&imgStats, bands);
+	imagestatistics_initialize(&noiseStats, bands);
 	mnf_estimate_statistics(workspace, bands, samples, lines, data, &imgStats, &noiseStats);
 
 	//run forward transform
-	mnf_run_forward(workspace, imgStats, noiseStats, bands, samples, lines, data);
+	mnf_run_forward(workspace, &imgStats, &noiseStats, bands, samples, lines, data);
 
 	//run inverse transform
-	mnf_run_inverse(workspace, imgStats, noiseStats, bands, samples, lines, data);
+	mnf_run_inverse(workspace, &imgStats, &noiseStats, bands, samples, lines, data);
 
 	imagestatistics_deinitialize(&imgStats);
 	imagestatistics_deinitialize(&noiseStats);
@@ -53,7 +53,6 @@ void mnf_initialize(int bands, int samples, int numBandsInInverse, MnfWorkspace 
 }
 
 void mnf_deinitialize(MnfWorkspace *workspace){
-	delete [] workspace->means;
 	delete [] workspace->ones_samples;
 	delete [] workspace->R;
 }
@@ -152,7 +151,7 @@ void mnf_get_transf_matrix(int bands, ImageStatistics *imgStats, ImageStatistics
 	mnf_calculate_forward_transf_matrix(bands, imgCov, noiseCov, forwardTransf);
 	
 	//estimate inverse transformation matrix
-	mnf_calculate_forward_transf_matrix(bands, forwardTransf, inverseTransf);
+	mnf_calculate_inverse_transf_matrix(bands, forwardTransf, inverseTransf);
 	
 	delete [] imgCov;
 	delete [] noiseCov;
@@ -210,7 +209,7 @@ void mnf_calculate_inverse_transf_matrix(int bands, const float *forwardTransf, 
 
 
 
-void readStatistics(MnfWorkspace *container){
+/*void readStatistics(MnfWorkspace *container){
 	const char *imgCovStr = string(container->basefilename + "_imgcov.dat").c_str();
 	const char *noiseCovStr = string(container->basefilename + "_noisecov.dat").c_str();
 
@@ -285,4 +284,4 @@ void printMeans(float *means, int bands, string filename){
 	file.close();
 	
 }
-
+*/

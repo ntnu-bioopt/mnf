@@ -8,8 +8,6 @@ NTNU */
 #include <string>
 #include "hyperspectral.h"
 #include <vector>
-#include <gsl/gsl_matrix.h>
-#include <vector>
 
 //struct containing variables and arrays neccessary for performing the MNF transform
 typedef struct{
@@ -18,24 +16,26 @@ typedef struct{
 	float *ones_samples; //vector of length samples consisting only of ones, for convenience
 } MnfWorkspace;
 
+#include "mnf_linebyline.h"
+
 //enum specifying which direction to run the MNF transform
 enum TransformDirection{RUN_BOTH, RUN_FORWARD, RUN_INVERSE};
 
 //(de)initialize the mnf workspace
-void mnf_initialize(int numBands, int numSamples, MnfWorkspace *workSpace);
+void mnf_initialize(int bands, int samples, int numBandsInInverse, MnfWorkspace *workspace);
 void mnf_deinitialize(MnfWorkspace *workSpace);
 
 //run mnf, save results to file
 void mnf_run(MnfWorkspace *workspace, int bands, int samples, int lines, float *data);
 
 //estimate mnf statistics from the image
-void mnf_estimate_statistics(int bands, int samples, int lines, float *img, ImageStatistics *imgStats, ImageStatistics *noiseStats);
+void mnf_estimate_statistics(MnfWorkspace *workspace, int bands, int samples, int lines, float *img, ImageStatistics *imgStats, ImageStatistics *noiseStats);
 
 //run forward mnf transform in place
-void mnf_run_forward(ImageStatistics *stats, int bands, int samples, int lines, float *img, std::string filename);
+void mnf_run_forward(MnfWorkspace *workspace, ImageStatistics *imgStats, ImageStatistics *noiseStats, int bands, int samples, int lines, float *img);
 
 //run inverse mnf transform in place
-void mnf_run_inverse(int num_bands_in_inverse, ImageStatistics *stats, int bands, int samples, int lines, float *img, std::string filename);
+void mnf_run_inverse(MnfWorkspace *workspace, ImageStatistics *imgStats, ImageStatistics *noiseStats, int bands, int samples, int lines, float *img);
 
 //forward and inverse transformations based on covariances
 void mnf_calculate_forward_transf_matrix(int bands, const float *imgCov, const float *noiseCov, float *forwardTransf);

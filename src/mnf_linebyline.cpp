@@ -21,12 +21,12 @@ void mnf_linebyline_estimate_noise(int bands, int samples, float *line, float **
 
 
 void imagestatistics_get_means(ImageStatistics *stats, int numBands, float *means){
-	for (int i=0; i < bands; i++){
+	for (int i=0; i < numBands; i++){
 		means[i] = stats->means[i];
 	}
 }
 
-void imagestatistics_get_covariance(ImageStatistics *stats, int numBands, float *cov){
+void imagestatistics_get_cov(ImageStatistics *stats, int numBands, float *cov){
 	for (int i=0; i < numBands*numBands; i++){
 		cov[i] = stats->C[i]/(stats->n*1.0f);
 	}
@@ -46,27 +46,20 @@ void mnf_linebyline_run_oneline(MnfWorkspace *workspace, int bands, int samples,
 	int noise_samples = 0;
 
 	//image statistics
-	imagestatistics_update_statistics_with_line(workspace, bands, samples, line, imageStats);
+	imagestatistics_update_with_line(workspace, bands, samples, line, imageStats);
 	
 	//noise statistics
 	mnf_linebyline_estimate_noise(bands, samples, line, &noise, &noise_samples);
-	imagestatistics_update_statistics_with_line(workspace, bands, noise_samples, noise, noiseStats);
+	imagestatistics_update_with_line(workspace, bands, noise_samples, noise, noiseStats);
 
 	//get means	
 	float *means_float = new float[bands];
-	float *noisemeans_float = new float[bands];
-	imagestatistics_get_means(noiseStats, bands, noisemeans_float);
 	imagestatistics_get_means(imageStats, bands, means_float);
 
-	//get true covariance
-	imagestatistics_get_covariance(imageStats, bands, workspace->imgCov);
-	imagestatistics_get_covariance(noiseStats, bands, workspace->noiseCov);
-
-	//find forward and inverse transformation matrices	
-	mnf_calculate_forward_transf_matrix(bands, workspace->imgCov, workspace->noiseCov, workspace->forwardTransf);
-	mnf_calculate_inverse_transf_matrix(bands, workspace->forwardTransf, workspace->inverseTransf);
-	float *forwardTransfArr = workspace->forwardTransf;
-	float *inverseTransfArr = workspace->inverseTransf;
+	//find forward and inverse transformation matrices
+	float *forwardTransfArr = new float[bands*bands];
+	float *inverseTransfArr = new float[bands*bands];
+	mnf_get_transf_matrix(bands, imageStats, noiseStats, forwardTransfArr, inverseTransfArr);
 	
 	//remove mean from data
 	mnf_linebyline_remove_mean(workspace, means_float, bands, samples, line);
@@ -93,29 +86,26 @@ void mnf_linebyline_run_oneline(MnfWorkspace *workspace, int bands, int samples,
 	delete [] invTrMultRMultForTr;
 	delete [] noise;
 	delete [] means_float;
+	delete [] forwardTransfArr;
+	delete [] forwardTransfArr;
 }
 
-void mnf_linebyline_run_image(int bands, int samples, int lines, float *data, std::string mnfOutFilename){
-	Covariance noiseCov;
-	Covariance imageCov;
+void mnf_linebyline_run_image(MnfWorkspace *workspace, int bands, int samples, int lines, float *data, std::string mnfOutFilename){
+	ImageStatistics noiseStats;
+	ImageStatistics imageStats;
 
-	initializeCov(&noiseCov, bands, samples);
-	initializeCov(&imageCov, bands, samples);
+	imagestatistics_initialize(&noiseStats, bands);
+	imagestatistics_initialize(&imageStats, bands);
 
-	MnfWorkspace workspace;
-	initializeMnfWorkspace(&workspace, numBands, samples, bands);
 
 	for (int i=0; i < lines; i++){
 		float *line = data + i*samples*bands;
 		fprintf(stderr, "Line %d/%d\n", i, lines);
-		mnf_oneline(line, &workspace, &imageCov, &noiseCov);
+		mnf_linebyline_run_oneline(workspace, bands, samples, line, &imageStats, &noiseStats);
 	}
-	deinitializeMnfWorkspace(&workspace);	
-	deinitializeCov(&noiseCov);
-	deinitializeCov(&imageCov);
 
-	Hyperspectral img(data, lines, samples, bands, BIL);
-	img.writeToFile(mnfOutfilename + string("_inversetransformed"));
+	imagestatistics_deinitialize(&noiseStats);
+	imagestatistics_deinitialize(&imageStats);
 }
 
 void imagestatistics_initialize(ImageStatistics *stats, int bands){
@@ -137,7 +127,7 @@ void imagestatistics_deinitialize(ImageStatistics *stats){
 }
 
 
-void imagestatistics_update_with_line(const MnfWorkspace *workspace, int numBands, int numSamples, float *bilData, ImageStatistics *stats){
+void imagestatistics_update_with_line(const MnfWorkspace *workspace, int bands, int samples, float *bilData, ImageStatistics *stats){
 	stats->n += samples;
 	float *C = stats->C;
 	double *means = stats->means;
@@ -151,7 +141,7 @@ void imagestatistics_update_with_line(const MnfWorkspace *workspace, int numBand
 	cblas_sgemv(CblasRowMajor, CblasNoTrans, bands, samples, 1.0f/(1.0f*samples), tempLine, samples, workspace->ones_samples, 1, 0.0f, meanTemp, 1);
 
 	//subtract mean from line
-	removeMean(workspace, tempLine, meanTemp, samples, bands);
+	mnf_linebyline_remove_mean(workspace, meanTemp, bands, samples, tempLine);
 
 	//calculate covariance for current line and add to accumulated covariance
 	cblas_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans, bands, samples, 1.0f, tempLine, samples, 1.0f, C, bands);
