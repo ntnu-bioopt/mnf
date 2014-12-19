@@ -1,7 +1,6 @@
 #ifndef MNF_LINEBYLINE_H_DEFINED
 #define MNF_LINEBYLINE_H_DEFINED
 
-#include "mnf.h"
 
 
 //image statistics, including covariance and means
@@ -10,6 +9,8 @@ typedef struct{
 	float *C; 
 	double *means; 
 } ImageStatistics;
+
+#include "mnf.h"
 
 
 //run the mnf-lbl method on the entire image
