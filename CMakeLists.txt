@@ -7,10 +7,6 @@ project(mnf C CXX)
 #find_package(BLAS REQUIRED)
 set(MKL_LIBRARIES mkl_intel_lp64 mkl_intel_thread mkl_core iomp5)
 
-#pthreads
-find_package(Threads)
-
-
 set(CMAKE_BUILD_TYPE Debug)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
