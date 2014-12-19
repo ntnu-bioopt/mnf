@@ -12,7 +12,7 @@ set(CMAKE_BUILD_TYPE Debug)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 #mnf library
-add_library(mnf SHARED src/mnf_c.cpp src/mnf_linebyline.cpp src/mnf_readimage.cpp)
+add_library(mnf SHARED src/mnf_c.cpp src/mnf_linebyline.cpp src/readimage.cpp)
 
 #mnf executable
 add_executable(mnf-bin src/main.cpp src/readimage.cpp)
