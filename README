@@ -1,7 +1,7 @@
 Noise removal of hyperspectral images using the MNF transform. See --help. 
 
 For use of this source code, please cite A. Bjorgan, L. L. Randeberg, "Real-time noise removal
-for line-scanning hyperspectral devices using a Minimum Noise Fraction-based approach". 
+for line-scanning hyperspectral devices using a Minimum Noise Fraction-based approach", Sensors X(x), pp. XX-XX (2014). DOI:XXXXXXXXXXXXXXXXXXXXX.
 
 RUNNING
 mnf is run from the command line. ./mnf filename --option1 --option2 ..., or mnf.exe filename --option1 --option2 ... . 
@@ -11,4 +11,4 @@ and noise removal line by line is run when the --line-by-line option is set.
 
 BUILDING
 
-This application is built using CMake. Create a new subdirectory build/, navigate to it and run cmake .. .
+This application is built using CMake (http://cmake.org). Create a new subdirectory build/, navigate to it and run cmake .. to generate makefiles. Run make or nmake.exe or equivalent.  
