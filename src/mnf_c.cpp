@@ -67,10 +67,14 @@ void mnf_run(MnfWorkspace *workspace, int bands, int samples, int lines, float *
 
 		//write image statistics to file
 		imagestatistics_write_to_file(workspace, bands, &imgStats, &noiseStats);
-	} else if (workspace->direction == RUN_INVERSE){
+	} 
+	
+	if (workspace->direction == RUN_INVERSE){
 		//get statistics from file
 		imagestatistics_read_from_file(workspace, bands, &imgStats, &noiseStats);
-	} else if (workspace->direction == RUN_BOTH){
+	} 
+	
+	if ((workspace->direction == RUN_BOTH) || (workspace->direction == RUN_INVERSE)){
 		//run inverse transform
 		cout << "Run inverse transform." << endl;
 		mnf_run_inverse(workspace, &imgStats, &noiseStats, bands, samples, lines, data);
