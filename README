@@ -1,5 +1,8 @@
 Noise removal of hyperspectral images using the MNF transform. See --help. 
 
+For use of this source code, please cite A. Bjorgan, L. L. Randeberg, "Real-time noise removal
+for line-scanning hyperspectral devices using a Minimum Noise Fraction-based approach". 
+
 RUNNING
 mnf is run from the command line. ./mnf filename --option1 --option2 ..., or mnf.exe filename --option1 --option2 ... . 
 
