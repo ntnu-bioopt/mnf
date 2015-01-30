@@ -4,7 +4,7 @@ transform.
 For use of this source code, please cite A. Bjorgan, L. L. Randeberg,
 "Real-time noise removal for line-scanning hyperspectral devices using a
 Minimum Noise Fraction-based approach", Sensors X(x), pp. XX-XX (2015).
-DOI:XXXXXXXXXXXXXXXXXXXXX (reference will be updated when paper is submitted, 
+DOI:XXXXXXXXXXXXXXXXXXXXX (reference will be updated when paper is published, 
 currently in press). Theory can be found in the same paper. 
 
 RUNNING 
