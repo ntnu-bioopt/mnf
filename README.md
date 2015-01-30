@@ -1,16 +1,17 @@
-Line-by-line noise removal of hyperspectral using an algorithm based on the MNF
+Line-by-line noise removal of hyperspectral images using an algorithm based on the MNF
 transform.
 
 For use of this source code, please cite A. Bjorgan, L. L. Randeberg,
 "Real-time noise removal for line-scanning hyperspectral devices using a
 Minimum Noise Fraction-based approach", Sensors X(x), pp. XX-XX (2015).
-DOI:XXXXXXXXXXXXXXXXXXXXX. Theory can be found in the same paper. 
+DOI:XXXXXXXXXXXXXXXXXXXXX (reference will be updated when paper is submitted, 
+currently in press). Theory can be found in the same paper. 
 
 RUNNING 
 
 mnf is run from the command line. ./mnf filename --option1 --option2
 ..., or mnf.exe filename --option1 --option2 ... .  See ./mnf --help for
-options. 
+options. BIL-interleaved ENVI images are assumed. 
 
 The line-by-line algorithm is run when the --line-by-line option is set. When
 it is not set, the ordinary MNF transform is run. 
