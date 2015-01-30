@@ -23,7 +23,7 @@ using namespace std;
 
 void showHelp(){
 	cerr << "Usage: mnf [OPTION]... [FILE]" << endl
-		<< "Noise removal using the MNF transform. Requires BIL interleave on images." << endl
+		<< "Noise removal using the MNF transform. Requires BIL interleave on images, assumes ENVI format." << endl
 		<< "--help\t\t\t Show help" << endl
 		<< "--output=BASEFILENAME \t Output to specified basefilename (FILENAME_transformed.img, FILENAME_inversetransformed.img). Defaults to [input filename]_mnf." << endl
 		<< endl
@@ -34,8 +34,9 @@ void showHelp(){
 		<< "--endline=END_LINE \t End line" << endl
 		<< endl
 		<< "MNF arguments: " << endl
-		<< "--forward-only \t Run forward transform only." << endl
-		<< "--inverse-only \t Run inverse transform only. Files containing the covariance files are assumed to have filenames [BASEFILENAME]_imgcov.dat and [BASEFILENAME]_noisecov.dat." << endl
+		<< "--line-by-line \t Use the line-by-line modification for denoising." << endl
+		<< "--forward-only \t Run forward transform only. (Ignored when --line-by-line is set)" << endl
+		<< "--inverse-only \t Run inverse transform only. Files containing the covariance files are assumed to have filenames [BASEFILENAME]_imgcov.dat and [BASEFILENAME]_noisecov.dat. (Ignored when --line-by-line is set)" << endl
 		<< "(If run with both --forward-only and --inverse-only, these arguments will be ignored)" << endl
 		<< "--num-bands=NUM_BANDS \t Specify the number of bands to use in the inverse transform. Default is 10." << endl;
 
