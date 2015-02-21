@@ -7,9 +7,9 @@ Minimum Noise Fraction-based approach", Sensors 15(2), pp. 3362-3378 (2015).
 doi:10.3390/s150203362](http://www.mdpi.com/1424-8220/15/2/3362). 
 Theory can be found in the same paper. 
 
-=======
+
 Running
-=======
+-------
 
 `mnf` is run from the command line. `./mnf filename --option1 --option2...`, or `mnf.exe filename --option1 --option2 ...` .  See `./mnf --help` for
 options. BIL-interleaved ENVI images are assumed. 
@@ -22,11 +22,10 @@ P., and Craig, M. D., "A transformation for ordering multispectral data in
 terms of image quality with implications for noise removal", IEEE Transactions
 on Geoscience and Remote Sensing 26(1), pp. 65-74 (1988).
 
-========
 Building
-========
+--------
 
-This application is built using [CMake](http://cmake.org). 
+This application is built using [CMake](http://cmake.org), producing `mnf`, the main application executable, and `libmnf`, for using the algorithms in other applications. 
 
 1. `mkdir build`
 2. `cd build`
@@ -37,9 +36,8 @@ This application is built using [CMake](http://cmake.org).
 The output of `cmake ..` should give indication of missing libraries or the need to
 add libraries to the `CMakeLists.txt` file. 
 
-============
 Requirements
-============
+------------
 
 This program requires some LAPACKE and BLAS implementation. This is currently
 configured to Intel MKL in the CMakeLists.txt file. 
