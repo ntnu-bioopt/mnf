@@ -1,11 +1,14 @@
 Line-by-line noise removal of hyperspectral images using an algorithm based on the MNF
 transform.
 
-For use of this source code, please cite [A. Bjorgan, L. L. Randeberg,
+If you use this software, we would be grateful if you could cite the following paper:
+
+[A. Bjorgan, L. L. Randeberg,
 "Real-time noise removal for line-scanning hyperspectral devices using a
 Minimum Noise Fraction-based approach", Sensors 15(2), pp. 3362-3378 (2015).
 doi:10.3390/s150203362](http://www.mdpi.com/1424-8220/15/2/3362). 
-Theory can be found in the same paper. 
+
+Underlying theory can be found in the same reference. 
 
 
 Running
