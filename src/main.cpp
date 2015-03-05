@@ -32,17 +32,19 @@ void showHelp(){
 		<< "--endpix=END_PIXEL \t End sample" << endl
 		<< "--startline=START_LINE \t Start line" << endl
 		<< "--endline=END_LINE \t End line" << endl
+		<< "--startband=START_BAND \t Start band" << endl
+		<< "--endband=END_BAND \t End band" << endl
 		<< endl
 		<< "MNF arguments: " << endl
 		<< "--line-by-line \t Use the line-by-line modification for denoising." << endl
 		<< "--forward-only \t Run forward transform only. (Ignored when --line-by-line is set)" << endl
 		<< "--inverse-only \t Run inverse transform only. Files containing the covariance files are assumed to have filenames [BASEFILENAME]_imgcov.dat and [BASEFILENAME]_noisecov.dat. (Ignored when --line-by-line is set)" << endl
 		<< "(If run with both --forward-only and --inverse-only, these arguments will be ignored)" << endl
-		<< "--num-bands=NUM_BANDS \t Specify the number of bands to use in the inverse transform. Default is 10." << endl;
+		<< "--num-bands-in-inverse=NUM_BANDS \t Specify the number of bands to use in the inverse transform. Default is 10." << endl;
 
 }
 void createOptions(option **options){
-	int numOptions = 11;
+	int numOptions = 13;
 	*options = new option[numOptions];
 
 	(*options)[0].name = "startpix";
@@ -85,7 +87,7 @@ void createOptions(option **options){
 	(*options)[7].flag = NULL;
 	(*options)[7].val = 7;
 	
-	(*options)[8].name = "num-bands";
+	(*options)[8].name = "num-bands-in-inverse";
 	(*options)[8].has_arg = required_argument;
 	(*options)[8].flag = NULL;
 	(*options)[8].val = 8;
@@ -94,11 +96,21 @@ void createOptions(option **options){
 	(*options)[9].has_arg = no_argument;
 	(*options)[9].flag = NULL;
 	(*options)[9].val = 9;
+	
+	(*options)[10].name = "startband";
+	(*options)[10].has_arg = required_argument;
+	(*options)[10].flag = NULL;
+	(*options)[10].val = 10;
+	
+	(*options)[11].name = "endband";
+	(*options)[11].has_arg = required_argument;
+	(*options)[11].flag = NULL;
+	(*options)[11].val = 11;
 
-	(*options)[10].name = 0;
-	(*options)[10].has_arg = 0;
-	(*options)[10].flag = 0;
-	(*options)[10].val = 0;
+	(*options)[12].name = 0;
+	(*options)[12].has_arg = 0;
+	(*options)[12].flag = 0;
+	(*options)[12].val = 0;
 
 }
 
@@ -113,12 +125,14 @@ int main(int argc, char *argv[]){
 	int endline = 0;
 	int startpix = 0;
 	int endpix = 0;
+	int startband = 0;
+	int endband = 0;
 	string mnfOutFilename;
 	bool mnfOutFilenameWasSet = false;
 	
 	int index;
 
-	int numBands = 10; //number of bands to use in the inverse transformation
+	int numBandsToKeepInInverse = 10; //number of bands to use in the inverse transformation
 	bool shouldOnlyInverse = false;
 	bool shouldOnlyForward = false;
 	bool shouldLineByLine = false;
@@ -157,10 +171,16 @@ int main(int argc, char *argv[]){
 				shouldOnlyInverse = true;
 			break;
 			case 8:
-				numBands = strtod(optarg, NULL);
+				numBandsToKeepInInverse = strtod(optarg, NULL);
 			break;
 			case 9:
 				shouldLineByLine = true;
+			break;
+			case 10:
+				startband = strtod(optarg, NULL);
+			break;
+			case 11:
+				endband = strtod(optarg, NULL);
 			break;
 		}
 		if (flag == -1){
@@ -198,20 +218,33 @@ int main(int argc, char *argv[]){
 	if (!endpix){
 		endpix = header.samples;
 	}
-	
-	int newLines = endline - startline;
-	int newSamples = endpix - startpix;
+	if (!startband){
+		startband = 0;
+	}
+	if (!endband){
+		endband = header.bands;
+	}
+
+	//new hyperspectral data cube sizes after subsetting
+	int newNumLines = endline - startline;
+	int newNumSamples = endpix - startpix;
+	int newNumBands = endband - startband;
 
 	ImageSubset subset;
 	subset.startSamp = startpix;
 	subset.endSamp = endpix;
 	subset.startLine = startline;
 	subset.endLine = endline;
+	subset.startBand = startband;
+	subset.endBand = endband;
 	
 	//read hyperspectral image
-	float *data = new float[newLines*newSamples*header.bands];
+	float *data = new float[newNumLines*newNumSamples*newNumBands];
 	hyperspectral_read_image(filename, &header, subset, data);
-	wlens = header.wlens;
+
+	for (int i=subset.startBand; i < subset.endBand; i++){
+		wlens.push_back(header.wlens[i]);
+	}
 	
 
 	//run MNF
@@ -229,15 +262,14 @@ int main(int argc, char *argv[]){
 	
 	
 	MnfWorkspace workspace;
-	mnf_initialize(dir, header.bands, header.samples, numBands, &workspace, mnfOutFilename);
+	mnf_initialize(dir, newNumBands, newNumSamples, numBandsToKeepInInverse, &workspace, mnfOutFilename);
 
 	if (shouldLineByLine){
-		mnf_linebyline_run_image(&workspace, header.bands, newSamples, newLines, data, wlens);
+		mnf_linebyline_run_image(&workspace, newNumBands, newNumSamples, newNumLines, data, wlens);
 	} else {
-		mnf_run(&workspace, header.bands, newSamples, newLines, data, wlens);
+		mnf_run(&workspace, newNumBands, newNumSamples, newNumLines, data, wlens);
 	}
 	
 	mnf_deinitialize(&workspace);
 	delete [] data;
-	
 }

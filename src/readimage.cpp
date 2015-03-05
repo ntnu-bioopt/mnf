@@ -131,7 +131,7 @@ void hyperspectral_read_image(char *filename, HyspexHeader *header, ImageSubset 
 
 		//convert to float, copy to total array
 		for (int j=subset.startSamp; j < subset.endSamp; j++){
-			for (int k=0; k < header->bands; k++){
+			for (int k=subset.startBand; k < subset.endBand; k++){
 				float val;
 				int position = k*header->samples + j;
 				if (header->datatype == 4){
@@ -139,7 +139,7 @@ void hyperspectral_read_image(char *filename, HyspexHeader *header, ImageSubset 
 				} else if (header->datatype == 12){
 					val = (((uint16_t*)line)[position])*1.0f;
 				}
-				data[i*header->bands*(subset.endSamp - subset.startSamp) + k*(subset.endSamp - subset.startSamp) + j-subset.startSamp] = val;
+				data[i*(subset.endBand - subset.startBand)*(subset.endSamp - subset.startSamp) + (k - subset.startBand)*(subset.endSamp - subset.startSamp) + j-subset.startSamp] = val;
 			}
 		}
 		free(line);

@@ -23,6 +23,8 @@ typedef struct {
 	int endSamp;
 	int startLine;
 	int endLine;
+	int startBand;
+	int endBand;
 } ImageSubset;
 	
 void hyperspectral_read_header(char *filename, HyspexHeader *header);
