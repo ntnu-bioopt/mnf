@@ -42,7 +42,8 @@ add libraries to the `CMakeLists.txt` file.
 Requirements
 ------------
 
-This program requires some LAPACKE and BLAS implementation. This is currently
-configured to Intel MKL in the CMakeLists.txt file. 
+This program requires a LAPACKE and BLAS implementation.
+
+MKL can be enabled over the standard BLAS implementations available on the system by running `cmake -DUSE_MKL_LIBRARIES=True ..` and rebuilding.
 
 GNU Regex is required for src/readimage.cpp. 
